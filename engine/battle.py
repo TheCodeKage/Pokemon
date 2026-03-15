@@ -90,7 +90,7 @@ class BattleEngine:
         self.log(f"{attacker.name} used {move.name}!")
 
         # Check accuracy
-        if random.randint(1, 100) > move.base_move.accuracy:
+        if move.base_move.accuracy is not None and random.randint(1, 100) > move.base_move.accuracy:
             self.log("The attack missed!")
             return
 

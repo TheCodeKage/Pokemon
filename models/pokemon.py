@@ -164,3 +164,4 @@ class BattlePokemon:
     def switch_out(self):
         self.stat_changes = Stats(0, 0, 0, 0, 0, 0)
         self.volatile_conditions.clear()
+        # status_condition intentionally persists through switching

@@ -18,7 +18,7 @@ class PokeAPIClient:
         response = clean_request(self._url + 'pokemon/', name, self.session)
 
         stats = dict()
-        for i in range(5):
+        for i in range(6):
             stats[response["stats"][i]["stat"]["name"]] = response["stats"][i]["base_stat"]
 
         types = []

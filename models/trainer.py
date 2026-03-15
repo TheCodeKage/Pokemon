@@ -6,11 +6,15 @@ from models.pokemon import Pokemon, BattlePokemon
 class Trainer:
     name: str
     trainer_id: int
-    pokemon: set[Pokemon]
+    pokemon: list[Pokemon]
 
     def __post_init__(self):
         if len(self.pokemon) > 6:
             raise ValueError("A trainer can only have 6 Pokemon")
+        if len(set(self.pokemon)) != len(self.pokemon):
+            raise ValueError("Trainer cannot have duplicate Pokemon")
+        if len(self.pokemon) < 1:
+            raise ValueError("Trainer must have at least 1 Pokemon")
 
 
 @dataclass
