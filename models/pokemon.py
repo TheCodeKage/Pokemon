@@ -34,7 +34,7 @@ class Pokemon:
     EVs: Stats
     ability: Ability
     level: int
-    current_hp: int
+    current_hp: int = field(default=-1)
     name: str = field(default="")
 
     def calculate_stat(self, base: int, iv: int, ev: int, is_hp: bool = False) -> int:
@@ -99,7 +99,7 @@ class Pokemon:
 
         max_hp = self.max_hp
         if self.current_hp < 0:
-            raise ValueError("current_hp cannot be negative")
+            self.current_hp = max_hp
         if self.current_hp > max_hp:
             raise ValueError(f"current_hp cannot exceed max HP ({max_hp})")
 
