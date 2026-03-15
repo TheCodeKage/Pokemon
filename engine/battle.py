@@ -1,5 +1,5 @@
 from engine.type_chart import get_effectiveness
-from models import Trainer, Move, BattlePokemon, BattleTrainer, DamageClass
+from models import Trainer, Move, BattlePokemon, BattleTrainer, DamageClass, StatusCondition
 from dataclasses import dataclass, field, InitVar
 from typing import Union, Tuple
 import random
@@ -51,6 +51,18 @@ class BattleEngine:
         """Add message to battle log and print it"""
         self.battle_log.append(message)
         print(message)
+
+    def apply_end_of_turn_effects(self, pokemon: BattlePokemon):
+        if pokemon.status_condition is not None:
+            match pokemon.status_condition:
+                case StatusCondition.BURN:
+                    pokemon.pokemon.current_hp = max(0, pokemon.pokemon.current_hp - max(1, pokemon.pokemon.current_hp // 16))
+                case StatusCondition.POISON:
+                    pokemon.pokemon.current_hp = max(0, pokemon.pokemon.current_hp - max(1, pokemon.pokemon.current_hp // 8))
+                case StatusCondition.TOXIC:
+                    pokemon.toxic_counter += 1
+                    counter = pokemon.toxic_counter
+                    pokemon.pokemon.current_hp = max(0, pokemon.pokemon.current_hp - max(1, pokemon.pokemon.current_hp * counter // 16))
 
     def calculate_damage(self, attacker: BattlePokemon, defender: BattlePokemon, move: Move) -> int:
         """Calculate damage using Pokemon damage formula"""
@@ -153,6 +165,18 @@ class BattleEngine:
                     if not opponent.has_lost and len(opponent.reserve_pokemon) > 0:
                         self.log(f"{opponent.trainer.name} must switch Pokemon!")
                         # In a real game, you'd handle forced switches here
+        self.apply_end_of_turn_effects(self.trainer1.active_pokemon)
+        if self.trainer1.active_pokemon.pokemon.current_hp == 0:
+            # Force switch if they have pokemon left
+            if not self.trainer1.has_lost and len(self.trainer1.reserve_pokemon) > 0:
+                self.log(f"{self.trainer1.trainer.name} must switch Pokemon!")
+                # In a real game, you'd handle forced switches here
+        self.apply_end_of_turn_effects(self.trainer2.active_pokemon)
+        if self.trainer2.active_pokemon.pokemon.current_hp == 0:
+            # Force switch if they have pokemon left
+            if not self.trainer2.has_lost and len(self.trainer2.reserve_pokemon) > 0:
+                self.log(f"{self.trainer2.trainer.name} must switch Pokemon!")
+                # In a real game, you'd handle forced switches here
 
     def start_battle(self):
         """Main battle loop"""

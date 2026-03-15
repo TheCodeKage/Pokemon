@@ -117,6 +117,7 @@ class BattlePokemon:
     )
     volatile_conditions: List[VolatileCondition] = field(default_factory=list)
     status_condition: Optional[StatusCondition] = None
+    toxic_counter: int = 0
     moves: List[Move] = field(default_factory=list, init=False)
 
     def __post_init__(self):
