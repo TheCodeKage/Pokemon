@@ -1,5 +1,5 @@
 from engine.type_chart import get_effectiveness
-from models import Trainer, Move, BattlePokemon, BattleTrainer, DamageClass, StatusCondition, Type
+from models import Trainer, Move, BattlePokemon, BattleTrainer, DamageClass, StatusCondition, Type, Weather
 from dataclasses import dataclass, field, InitVar
 from typing import Union, Tuple
 import random
@@ -40,7 +40,8 @@ class BattleEngine:
     trainer1: BattleTrainer = field(init=False)
     trainer2: BattleTrainer = field(init=False)
     turn: int = field(init=False, default=0)
-    weather: str = field(init=False, default="")
+    weather: Weather = field(init=False, default=Weather.CLEAR)
+    weather_turns_remaining: int = field(init=False, default=0)
     battle_log: list[str] = field(init=False, default_factory=list)
 
     def __post_init__(self, trainer1_data: Trainer, trainer2_data: Trainer):
@@ -51,6 +52,37 @@ class BattleEngine:
         """Add message to battle log and print it"""
         self.battle_log.append(message)
         print(message)
+
+    def set_weather(self, weather: Weather, turns: int = 5):
+        self.weather = weather
+        self.weather_turns_remaining = turns
+        match weather:
+            case Weather.SUN:
+                self.log("The sunlight turned harsh!")
+            case Weather.RAIN:
+                self.log("It started to rain!")
+            case Weather.SAND:
+                self.log("A sandstorm kicked up!")
+            case Weather.HAIL:
+                self.log("It started to hail!")
+
+    def apply_weather_effects(self):
+        pkmn1 = self.trainer1.active_pokemon
+        pkmn2 = self.trainer2.active_pokemon
+        match self.weather:
+            case Weather.SAND:
+                for pkmn in [pkmn1, pkmn2]:
+                    immune_types = [Type.GROUND, Type.ROCK, Type.STEEL]
+                    if not set(pkmn.pokemon.species.types) & set(immune_types):
+                        damage = max(1, pkmn.max_hp // 16)
+                        pkmn.current_hp = max(0, pkmn.current_hp - damage)
+                        self.log(f"{pkmn.name} was hit by the sandstorm!")
+            case Weather.HAIL:
+                for pkmn in [pkmn1, pkmn2]:
+                    if Type.ICE not in pkmn.pokemon.species.types:
+                        damage = max(1, pkmn.max_hp // 16)
+                        pkmn.current_hp = max(0, pkmn.current_hp - damage)
+                        self.log(f"{pkmn.name} was hit by the hail!")
 
     def apply_end_of_turn_effects(self, pokemon: BattlePokemon):
         if pokemon.status_condition is not None:
@@ -87,6 +119,9 @@ class BattleEngine:
             attack = attacker.special_attack
             defense = defender.special_defense
 
+            if self.weather == Weather.SAND and Type.ROCK in defender.pokemon.species.types:
+                defense *= 1.5
+
         # Base damage calculation
         level = attacker.pokemon.level
         power = move.base_move.power
@@ -95,6 +130,18 @@ class BattleEngine:
         # STAB (Same Type Attack Bonus)
         if move.base_move.type in attacker.pokemon.species.types:
             damage *= 1.5
+
+        match self.weather:
+            case Weather.SUN:
+                if move.base_move.type == Type.FIRE:
+                    damage *= 1.5
+                elif move.base_move.type == Type.WATER:
+                    damage *= 0.5
+            case Weather.RAIN:
+                if move.base_move.type == Type.WATER:
+                    damage *= 1.5
+                elif move.base_move.type == Type.FIRE:
+                    damage *= 0.5
 
         # Type effectiveness (simplified - you'd need a type chart)
         damage *= get_effectiveness(move.base_move.type, defender.pokemon.species.types)
@@ -109,15 +156,6 @@ class BattleEngine:
         attacker = attacker_trainer.active_pokemon
         defender = defender_trainer.active_pokemon
 
-        if attacker.status_condition == StatusCondition.FREEZE:
-            if random.randint(1, 100) <= 20:
-                attacker.status_condition = None
-                self.log(f"{attacker.name} thawed out!")
-                # fall through — acts this turn
-            else:
-                self.log(f"{attacker.name} is frozen solid!")
-                return
-
         if attacker.status_condition == StatusCondition.SLEEP:
             if attacker.sleep_counter > 0:
                 attacker.sleep_counter -= 1
@@ -126,6 +164,15 @@ class BattleEngine:
             else:
                 attacker.status_condition = None
                 self.log(f"{attacker.name} woke up!")
+
+        if attacker.status_condition == StatusCondition.FREEZE:
+            if random.randint(1, 100) <= 20:
+                attacker.status_condition = None
+                self.log(f"{attacker.name} thawed out!")
+                # fall through — acts this turn
+            else:
+                self.log(f"{attacker.name} is frozen solid!")
+                return
 
         if attacker.status_condition == StatusCondition.PARALYSIS:
             if random.randint(1, 100) <= 25:
@@ -144,6 +191,7 @@ class BattleEngine:
 
         # Calculate and apply damage
         damage = self.calculate_damage(attacker, defender, move)
+
         if damage > 0:
             defender.pokemon.current_hp = max(0, defender.pokemon.current_hp - damage)
             self.log(f"{defender.name} took {damage} damage! (HP: {defender.pokemon.current_hp}/{defender.pokemon.max_hp})")
@@ -204,6 +252,12 @@ class BattleEngine:
                         self.log(f"{opponent.trainer.name} must switch Pokemon!")
                         # In a real game, you'd handle forced switches here
         self.apply_end_of_turn_effects(self.trainer1.active_pokemon)
+        self.apply_weather_effects()
+        if self.weather_turns_remaining > 0:
+            self.weather_turns_remaining -= 1
+            if self.weather_turns_remaining == 0:
+                self.log("The weather cleared up!")
+                self.weather = Weather.CLEAR
         if self.trainer1.active_pokemon.pokemon.current_hp == 0:
             # Force switch if they have pokemon left
             if not self.trainer1.has_lost and len(self.trainer1.reserve_pokemon) > 0:

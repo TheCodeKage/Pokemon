@@ -170,6 +170,10 @@ class BattlePokemon:
             return base // 2
         return base
 
+    @property
+    def current_hp(self) -> int:
+        return self.pokemon.current_hp
+
     def switch_out(self):
         self.stat_changes = Stats(0, 0, 0, 0, 0, 0)
         self.volatile_conditions.clear()

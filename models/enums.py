@@ -59,3 +59,11 @@ class DamageClass(enum.Enum):
     STATUS = 0
     PHYSICAL = 1
     SPECIAL = 2
+
+
+class Weather(enum.Enum):
+    CLEAR = "clear"
+    SUN = "sun"
+    RAIN = "rain"
+    SAND = "sand"
+    HAIL = "hail"
