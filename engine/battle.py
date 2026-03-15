@@ -1,5 +1,5 @@
 from engine.type_chart import get_effectiveness
-from models import Trainer, Move, BattlePokemon, BattleTrainer, DamageClass, StatusCondition
+from models import Trainer, Move, BattlePokemon, BattleTrainer, DamageClass, StatusCondition, Type
 from dataclasses import dataclass, field, InitVar
 from typing import Union, Tuple
 import random
@@ -68,6 +68,8 @@ class BattleEngine:
                     damage = max(1, pokemon.pokemon.max_hp * pokemon.toxic_counter // 16)
                     pokemon.pokemon.current_hp = max(0, pokemon.pokemon.current_hp - damage)
                     self.log(f"{pokemon.name} is hurt by poison! ({damage} damage)")
+                case _:
+                    pass  # SLEEP, FREEZE, PARALYSIS have no end-of-turn damage
 
             if pokemon.pokemon.current_hp == 0:
                 self.log(f"{pokemon.name} fainted!")
@@ -107,6 +109,15 @@ class BattleEngine:
         attacker = attacker_trainer.active_pokemon
         defender = defender_trainer.active_pokemon
 
+        if attacker.status_condition == StatusCondition.FREEZE:
+            if random.randint(1, 100) <= 20:
+                attacker.status_condition = None
+                self.log(f"{attacker.name} thawed out!")
+                # fall through — acts this turn
+            else:
+                self.log(f"{attacker.name} is frozen solid!")
+                return
+
         if attacker.status_condition == StatusCondition.SLEEP:
             if attacker.sleep_counter > 0:
                 attacker.sleep_counter -= 1
@@ -136,6 +147,11 @@ class BattleEngine:
         if damage > 0:
             defender.pokemon.current_hp = max(0, defender.pokemon.current_hp - damage)
             self.log(f"{defender.name} took {damage} damage! (HP: {defender.pokemon.current_hp}/{defender.pokemon.max_hp})")
+
+            if (defender.status_condition == StatusCondition.FREEZE
+                    and move.base_move.type == Type.FIRE):
+                defender.status_condition = None
+                self.log(f"{defender.name} was defrosted!")
 
             if defender.pokemon.current_hp == 0:
                 self.log(f"{defender.name} fainted!")

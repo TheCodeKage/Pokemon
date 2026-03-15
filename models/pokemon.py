@@ -1,3 +1,4 @@
+import random
 from dataclasses import dataclass, fields, field
 from typing import List, Optional
 
@@ -145,7 +146,10 @@ class BattlePokemon:
 
     @property
     def attack(self) -> int:
-        return int(self.pokemon.attack * self.get_stat_multiplier(self.stat_changes.attack))
+        base = int(self.pokemon.attack * self.get_stat_multiplier(self.stat_changes.attack))
+        if self.status_condition == StatusCondition.BURN:
+            return base // 2
+        return base
 
     @property
     def defense(self) -> int:
@@ -171,3 +175,20 @@ class BattlePokemon:
         self.volatile_conditions.clear()
         self.toxic_counter = 0
         # status_condition intentionally persists through switching
+
+    def apply_status(self, condition: StatusCondition):
+        if self.status_condition is not None:
+            return
+        # Type immunities
+        if condition == StatusCondition.FREEZE and Type.ICE in self.pokemon.species.types:
+            return
+        if condition == StatusCondition.BURN and Type.FIRE in self.pokemon.species.types:
+            return
+        if condition == StatusCondition.POISON and (
+                Type.POISON in self.pokemon.species.types
+                or Type.STEEL in self.pokemon.species.types
+        ):
+            return
+        self.status_condition = condition
+        if condition == StatusCondition.SLEEP:
+            self.sleep_counter = random.randint(1, 3)
