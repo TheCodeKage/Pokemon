@@ -56,13 +56,21 @@ class BattleEngine:
         if pokemon.status_condition is not None:
             match pokemon.status_condition:
                 case StatusCondition.BURN:
-                    pokemon.pokemon.current_hp = max(0, pokemon.pokemon.current_hp - max(1, pokemon.pokemon.current_hp // 16))
+                    damage = max(1, pokemon.pokemon.max_hp // 16)
+                    pokemon.pokemon.current_hp = max(0, pokemon.pokemon.current_hp - damage)
+                    self.log(f"{pokemon.name} is hurt by its burn!")
                 case StatusCondition.POISON:
-                    pokemon.pokemon.current_hp = max(0, pokemon.pokemon.current_hp - max(1, pokemon.pokemon.current_hp // 8))
+                    damage = max(1, pokemon.pokemon.max_hp // 8)
+                    pokemon.pokemon.current_hp = max(0, pokemon.pokemon.current_hp - damage)
+                    self.log(f"{pokemon.name} is hurt by poison!")
                 case StatusCondition.TOXIC:
                     pokemon.toxic_counter += 1
-                    counter = pokemon.toxic_counter
-                    pokemon.pokemon.current_hp = max(0, pokemon.pokemon.current_hp - max(1, pokemon.pokemon.current_hp * counter // 16))
+                    damage = max(1, pokemon.pokemon.max_hp * pokemon.toxic_counter // 16)
+                    pokemon.pokemon.current_hp = max(0, pokemon.pokemon.current_hp - damage)
+                    self.log(f"{pokemon.name} is hurt by poison! ({damage} damage)")
+
+            if pokemon.pokemon.current_hp == 0:
+                self.log(f"{pokemon.name} fainted!")
 
     def calculate_damage(self, attacker: BattlePokemon, defender: BattlePokemon, move: Move) -> int:
         """Calculate damage using Pokemon damage formula"""
@@ -98,6 +106,20 @@ class BattleEngine:
         """Execute a move from attacker to defender"""
         attacker = attacker_trainer.active_pokemon
         defender = defender_trainer.active_pokemon
+
+        if attacker.status_condition == StatusCondition.SLEEP:
+            if attacker.sleep_counter > 0:
+                attacker.sleep_counter -= 1
+                self.log(f"{attacker.name} is fast asleep!")
+                return
+            else:
+                attacker.status_condition = None
+                self.log(f"{attacker.name} woke up!")
+
+        if attacker.status_condition == StatusCondition.PARALYSIS:
+            if random.randint(1, 100) <= 25:
+                self.log(f"{attacker.name} is fully paralyzed and can't move!")
+                return
 
         self.log(f"{attacker.name} used {move.name}!")
 

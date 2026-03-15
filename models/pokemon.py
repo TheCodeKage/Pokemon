@@ -118,6 +118,7 @@ class BattlePokemon:
     volatile_conditions: List[VolatileCondition] = field(default_factory=list)
     status_condition: Optional[StatusCondition] = None
     toxic_counter: int = 0
+    sleep_counter: int = 0
     moves: List[Move] = field(default_factory=list, init=False)
 
     def __post_init__(self):
@@ -160,9 +161,13 @@ class BattlePokemon:
 
     @property
     def speed(self) -> int:
-        return int(self.pokemon.speed * self.get_stat_multiplier(self.stat_changes.speed))
+        base = int(self.pokemon.speed * self.get_stat_multiplier(self.stat_changes.speed))
+        if self.status_condition == StatusCondition.PARALYSIS:
+            return base // 2
+        return base
 
     def switch_out(self):
         self.stat_changes = Stats(0, 0, 0, 0, 0, 0)
         self.volatile_conditions.clear()
+        self.toxic_counter = 0
         # status_condition intentionally persists through switching
