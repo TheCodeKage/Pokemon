@@ -1,7 +1,9 @@
 from dataclasses import dataclass, fields, field
 from typing import List, Optional
 
-from models import Ability, BaseMove, Move, StatusCondition, Type, VolatileCondition
+from models.abilites import Ability
+from models.move import BaseMove, Move
+from models.enums import StatusCondition, Type, VolatileCondition
 
 
 @dataclass(frozen=True)
