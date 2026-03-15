@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from enums import Type, DamageClass
+from models import Type, DamageClass
 
 
 @dataclass(frozen=True)

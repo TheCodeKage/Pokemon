@@ -1,6 +1,5 @@
 from dataclasses import dataclass, field
-
-from pokemon import Pokemon, BattlePokemon
+from models import Pokemon, BattlePokemon
 
 
 @dataclass

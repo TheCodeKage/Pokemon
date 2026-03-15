@@ -1,10 +1,7 @@
-from typing import List, Dict, Optional
-
-from enums import Type, StatusCondition
-from models.enums import VolatileCondition
-from move import BaseMove, Move
 from dataclasses import dataclass, fields, field
-from abilites import Ability
+from typing import List, Optional
+
+from models import Ability, BaseMove, Move, StatusCondition, Type, VolatileCondition
 
 
 @dataclass(frozen=True)
@@ -35,7 +32,6 @@ class Pokemon:
     ability: Ability
     level: int
     current_hp: int
-    status_condition: Optional[StatusCondition] = None
     name: str = field(default="")
 
     def calculate_stat(self, base: int, iv: int, ev: int, is_hp: bool = False) -> int:
@@ -104,9 +100,6 @@ class Pokemon:
         if self.current_hp > max_hp:
             raise ValueError(f"current_hp cannot exceed max HP ({max_hp})")
 
-        if self.status_condition is not None and not isinstance(self.status_condition, StatusCondition):
-            raise ValueError("status_condition must be a StatusCondition")
-
         if len(set(self.moves)) != len(self.moves):
             raise ValueError("Pokemon cannot have duplicate moves")
 
@@ -121,12 +114,16 @@ class BattlePokemon:
         default_factory=lambda: Stats(0, 0, 0, 0, 0, 0)
     )
     volatile_conditions: List[VolatileCondition] = field(default_factory=list)
+    status_condition: Optional[StatusCondition] = None
     moves: List[Move] = field(default_factory=list, init=False)
 
     def __post_init__(self):
         for f in fields(self.stat_changes):
             if getattr(self.stat_changes, f.name) > 6 or getattr(self.stat_changes, f.name) < -6:
                 raise ValueError(f"Stat change for {f.name} must be between +6 & -6 (got {getattr(self.stat_changes, f.name)})")
+
+        if self.status_condition is not None and not isinstance(self.status_condition, StatusCondition):
+            raise ValueError("status_condition must be a StatusCondition")
 
         for move in self.pokemon.moves:
             self.moves.append(Move(move))

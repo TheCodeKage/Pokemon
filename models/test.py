@@ -1,5 +1,4 @@
-from models.enums import DamageClass
-from pokemon import *
+from models import *
 
 thunderbolt = BaseMove(name="Thunderbolt", type=Type.ELECTRIC, power=90, accuracy=100, pp=15, damage_class=DamageClass.SPECIAL)
 iron_tail = BaseMove(name="Iron Tail", type=Type.STEEL, power=80, accuracy=100, pp=15, damage_class=DamageClass.PHYSICAL)

@@ -1,7 +1,5 @@
-from models.pokemon import BattlePokemon
-from models.trainer import BattleTrainer, Trainer
-from models.move import Move
-from models.enums import DamageClass, Type
+from engine.type_chart import get_effectiveness
+from models import Trainer, Move, BattlePokemon, BattleTrainer, DamageClass
 from dataclasses import dataclass, field, InitVar
 from typing import Union, Tuple
 import random
@@ -77,7 +75,7 @@ class BattleEngine:
             damage *= 1.5
 
         # Type effectiveness (simplified - you'd need a type chart)
-        # TODO: Implement full type effectiveness system
+        damage *= get_effectiveness(move.base_move.type, defender.pokemon.species.types)
 
         # Random factor (0.85 to 1.0)
         damage *= random.uniform(0.85, 1.0)
