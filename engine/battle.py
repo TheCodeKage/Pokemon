@@ -36,8 +36,10 @@ class BattleEngine:
         idx = get_forced_switch(trainer)
         trainer.switch(idx)
         self.log(f"{trainer.trainer.name} sent out {trainer.active_pokemon.name}!")
-        self.fire_hook(BattleHook.ON_SWITCH_IN, trainer.active_pokemon,
-                       trainer, opponent=opponent.active_pokemon)
+        # only fire switch-in hook if there's a live opponent to react to
+        if opponent.active_pokemon.current_hp > 0:
+            self.fire_hook(BattleHook.ON_SWITCH_IN, trainer.active_pokemon,
+                           trainer, opponent=opponent.active_pokemon)
 
     def fire_hook(self, hook: BattleHook, user: BattlePokemon,
                   user_trainer: BattleTrainer, opponent=None, **kwargs) -> AbilityContext:
@@ -132,11 +134,6 @@ class BattleEngine:
 
             if defender.current_hp == 0:
                 self.log(f"{defender.name} fainted!")
-
-    def _handle_faint(self, trainer: BattleTrainer):
-        """Prompt forced switch after a faint. Stub for now."""
-        if not trainer.has_lost and len(trainer.reserve_pokemon) > 0:
-            self.log(f"{trainer.trainer.name} must switch Pokemon!")
 
     def _end_of_turn(self):
         for trainer in [self.trainer1, self.trainer2]:
