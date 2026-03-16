@@ -19,6 +19,7 @@ class BattleEngine:
     weather: Weather = field(init=False, default=Weather.CLEAR)
     weather_turns_remaining: int = field(init=False, default=0)
     battle_log: list[str] = field(init=False, default_factory=list)
+    trick_room_active: bool = field(init=False, default=False)
 
     def __post_init__(self, trainer1_data: Trainer, trainer2_data: Trainer):
         self.trainer1 = BattleTrainer(trainer1_data)
@@ -56,20 +57,30 @@ class BattleEngine:
             speed *= 2
         elif ability == "sand-rush" and self.weather == Weather.SAND:
             speed *= 2
-        return speed
+        return speed if not self.trick_room_active else -speed
 
     def determine_turn_order(self, action1: Union[Move, int],
-                              action2: Union[Move, int]) -> list[Tuple[BattleTrainer, Union[Move, int]]]:
-        if isinstance(action1, int) and isinstance(action2, int):
-            return [(self.trainer1, action1), (self.trainer2, action2)]
-        if isinstance(action1, int):
-            return [(self.trainer1, action1), (self.trainer2, action2)]
-        if isinstance(action2, int):
-            return [(self.trainer2, action2), (self.trainer1, action1)]
-        if self.get_effective_speed(self.trainer1.active_pokemon) >= \
-           self.get_effective_speed(self.trainer2.active_pokemon):
-            return [(self.trainer1, action1), (self.trainer2, action2)]
-        return [(self.trainer2, action2), (self.trainer1, action1)]
+                             action2: Union[Move, int]) -> list[Tuple[BattleTrainer, Union[Move, int]]]:
+        actions = [
+            (self.trainer1, action1),
+            (self.trainer2, action2),
+        ]
+        actions.sort(key=lambda x: self._action_priority(x[0], x[1]), reverse=True)
+        return actions
+
+    def _action_priority(self, trainer: BattleTrainer, action: Union[Move, int]) -> tuple:
+        """
+        Returns a sort key (higher = goes first).
+        Switches always beat moves, so they get priority bracket 7.
+        Within moves, sort by: priority bracket, then effective speed.
+        Speed ties are broken randomly.
+        """
+        if isinstance(action, int):
+            return 7, 0, 0  # switches always go first
+        move_priority = action.base_move.priority
+        speed = self.get_effective_speed(trainer.active_pokemon)
+        tiebreak = random.random()  # random for speed ties
+        return move_priority, speed, tiebreak
 
     def execute_move(self, attacker_trainer: BattleTrainer,
                      defender_trainer: BattleTrainer, move: Move):

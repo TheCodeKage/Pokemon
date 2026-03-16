@@ -12,6 +12,7 @@ class BaseMove:
     damage_class: DamageClass
     effect_chance: int = 0
     effect_entry: str = ""
+    priority: int = 0
 
 @dataclass
 class Move:

@@ -52,6 +52,7 @@ class PokeAPIClient:
         type = response["type"]["name"]
         effect_chance = response["effect_chance"]
         effect_entry = []
+        priority = response["priority"]
         for i in response["effect_entries"]:
             if i["language"]["name"] == "en":
                 effect_entry = i["short_effect"]
@@ -64,7 +65,8 @@ class PokeAPIClient:
             "pp": pp,
             "type": type,
             "effect_chance": effect_chance,
-            "effect_entry": effect_entry
+            "effect_entry": effect_entry,
+            "priority": priority
         }
 
         return response
