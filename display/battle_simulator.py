@@ -1,4 +1,5 @@
-from api.wrapper import PokeAPIClient
+from api import PokeAPIClient
+from engine import BattleEngine
 from models import BattlePokemon, BattleTrainer, Trainer, Pokemon, Stats
 
 client = PokeAPIClient()
@@ -18,12 +19,12 @@ charizard_moves = [flamethrower, solar_beam, focus_blast, roost]
 charizard_ability = client.get_ability("solar-power")
 
 
-extreme_speed = client.get_move("extreme-speed")
+thunder = client.get_move("thunder")
 volt_switch = client.get_move("volt-switch")
 knock_off = client.get_move("knock-off")
 protect = client.get_move("protect")
 
-pikachu_moves = [extreme_speed, volt_switch, knock_off, protect]
+pikachu_moves = [thunder, volt_switch, knock_off, protect]
 pikachu_ability = client.get_ability("static")
 
 
@@ -47,9 +48,9 @@ squirtle_ability = client.get_ability("torrent")
 leech_life = client.get_move("leech-life")
 u_turn = client.get_move("u-turn")
 aeriel_ace = client.get_move("aerial-ace")
-night_slash = client.get_move("night-slash")
+swords_dance = client.get_move("swords-dance")
 
-ninjask_moves = [leech_life, u_turn, aeriel_ace, night_slash]
+ninjask_moves = [leech_life, u_turn, aeriel_ace, swords_dance]
 ninjask_ability = client.get_ability("speed-boost")
 
 
@@ -81,5 +82,5 @@ sl2 = Pokemon(snorlax, snorlax_moves, IVs, EVs, snorlax_ability, 100, "bhaalu")
 naman = Trainer("Naman", 1, [ch1, pi1, ab1, sq1, nk1, sl1])
 gopal = Trainer("Gopal", 2, [ch2, pi2, ab2, sq2, nk2, sl2])
 
-print(naman)
-print(gopal)
+engine = BattleEngine(naman, gopal)
+engine.start_battle()

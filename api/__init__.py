@@ -1,0 +1,1 @@
+from api.wrapper import PokeAPIClient
