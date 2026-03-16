@@ -111,6 +111,11 @@ def make_drain_effect(fraction: float = 0.5):
         ctx.engine.log(f"{ctx.attacker.name} drained energy!")
     return handler
 
+def _rest_sleep(ctx: MoveContext):
+    ctx.attacker.status_condition = StatusCondition.SLEEP
+    ctx.attacker.sleep_counter = 2
+    ctx.engine.log(f"{ctx.attacker.name} went to sleep!")
+
 
 MOVE_EFFECT_REGISTRY: dict[str, Callable] = {
     # status moves — always apply
@@ -168,7 +173,7 @@ MOVE_EFFECT_REGISTRY: dict[str, Callable] = {
     "synthesis":      make_heal_effect(0.5),
     "slack-off":      make_heal_effect(0.5),
     "soft-boiled":    make_heal_effect(0.5),
-    "rest":           make_heal_effect(1.0),   # heals fully, sleep handled separately
+    "rest":           [make_heal_effect(1.0), _rest_sleep],   # heals fully, sleep handled separately
 
     # recoil
     "volt-tackle":    make_recoil_effect(1/3),

@@ -96,48 +96,71 @@ class BattleEngine:
 
     def execute_move(self, attacker_trainer: BattleTrainer,
                      defender_trainer: BattleTrainer, move: Move):
+        from engine.move_effects import MOVE_EFFECT_REGISTRY, MoveContext
+
         attacker = attacker_trainer.active_pokemon
         defender = defender_trainer.active_pokemon
 
-        # Status interrupt check — delegated to status module
         if status.check_move_interrupt(attacker, self.log):
             return
 
         self.log(f"{attacker.name} used {move.name}!")
 
-        # Ability hook — defender's ability may cancel the move
         ctx = self.fire_hook(BattleHook.ON_BEFORE_MOVE, defender, defender_trainer,
                              opponent=attacker, move_type=move.base_move.type)
         if ctx.cancelled:
             return
 
+        # accuracy check — determines move_hit but doesn't return yet
+        # so effects can still be dispatched with move_hit=False if needed
+        move_hit = True
         if move.base_move.accuracy is not None and \
                 random.randint(1, 100) > move.base_move.accuracy:
             self.log("The attack missed!")
-            return
+            move_hit = False
 
+        # PP only spent if move attempted (hit or miss) — not if cancelled above
         move.use()
 
-        damage_ctx = build_damage_context(attacker, defender, move, self.weather)
-        damage = calculate_damage(damage_ctx)
+        damage_dealt = 0
+        if move_hit and move.base_move.damage_class != DamageClass.STATUS:
+            damage_ctx = build_damage_context(attacker, defender, move, self.weather)
+            damage_dealt = calculate_damage(damage_ctx)
 
-        if damage > 0:
-            defender.current_hp = max(0, defender.current_hp - damage)
-            self.log(f"{defender.name} took {damage} damage! "
-                     f"(HP: {defender.current_hp}/{defender.pokemon.max_hp})")
+            if damage_dealt > 0:
+                defender.current_hp = max(0, defender.current_hp - damage_dealt)
+                self.log(f"{defender.name} took {damage_dealt} damage! "
+                         f"(HP: {defender.current_hp}/{defender.pokemon.max_hp})")
 
-            if move.base_move.damage_class == DamageClass.PHYSICAL:
-                self.fire_hook(BattleHook.ON_AFTER_DAMAGE, defender, defender_trainer,
-                               opponent=attacker)
+                if move.base_move.damage_class == DamageClass.PHYSICAL:
+                    self.fire_hook(BattleHook.ON_AFTER_DAMAGE, defender, defender_trainer,
+                                   opponent=attacker)
 
-            # Fire-thaw
-            if (defender.status_condition == StatusCondition.FREEZE
-                    and move.base_move.type == Type.FIRE):
-                defender.status_condition = None
-                self.log(f"{defender.name} was defrosted!")
+                if (defender.status_condition == StatusCondition.FREEZE
+                        and move.base_move.type == Type.FIRE):
+                    defender.status_condition = None
+                    self.log(f"{defender.name} was defrosted!")
 
-            if defender.current_hp == 0:
-                self.log(f"{defender.name} fainted!")
+                if defender.current_hp == 0:
+                    self.log(f"{defender.name} fainted!")
+
+        # fire move effect — this is what was missing entirely
+        effect = MOVE_EFFECT_REGISTRY.get(move.base_move.name.lower())
+        if effect is not None:
+            move_ctx = MoveContext(
+                engine=self,
+                attacker=attacker,
+                defender=defender,
+                attacker_trainer=attacker_trainer,
+                defender_trainer=defender_trainer,
+                damage_dealt=damage_dealt,
+                move_hit=move_hit,
+            )
+            if isinstance(effect, list):
+                for fn in effect:
+                    fn(move_ctx)
+            else:
+                effect(move_ctx)
 
     def _end_of_turn(self):
         for trainer in [self.trainer1, self.trainer2]:
