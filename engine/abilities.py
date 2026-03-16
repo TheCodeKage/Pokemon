@@ -1,9 +1,10 @@
 from dataclasses import dataclass, fields
 from typing import TYPE_CHECKING, Optional, Callable
+from models import StatusCondition, Type, Weather, BattleHook, Stats
 
 if TYPE_CHECKING:
     from engine.battle import BattleEngine
-    from models import BattlePokemon, BattleTrainer, Stats
+    from models import BattlePokemon, BattleTrainer
 
 
 @dataclass

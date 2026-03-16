@@ -18,7 +18,7 @@ ember = BaseMove("Ember", Type.FIRE, 40, 100, 25, DamageClass.SPECIAL)
 no_ability = Ability("none", "no effect")
 
 charizard_species = PokemonSpecies("Charizard", Stats(78,84,78,109,85,100), [Type.FIRE, Type.FLYING], [tackle, ember], [no_ability])
-charizard = Pokemon(charizard_species, [tackle, ember], Stats(31,31,31,31,31,31), Stats(0,0,0,0,0,0), no_ability, 50, 153)
+charizard = Pokemon(charizard_species, [tackle, ember], Stats(31,31,31,31,31,31), Stats(0,0,0,0,0,0), no_ability, 50)
 bp_char = BattlePokemon(charizard)
 
 try_apply_status(bp_char, StatusCondition.BURN)      # Fire type — should be immune
