@@ -434,38 +434,49 @@ assert target_bp.stat_changes.attack == -1, "Intimidate should lower opponent at
 lr_ability = Ability("lightning-rod", "absorbs electric moves")
 lr_sp = make_species("LR", Stats(80,80,80,80,80,80), [Type.NORMAL], [tackle], [lr_ability])
 lr_pkmn = make_pokemon(lr_sp, [tackle], ability=lr_ability)
+
+engine_lr = make_engine()  # just need an engine for the log method
 ctx = AbilityContext(
     engine=MagicMock(), user=BattlePokemon(lr_pkmn),
     user_trainer=MagicMock(), opponent=None,
     move_type=Type.ELECTRIC
 )
-from engine.abilities import lightning_rod as lr_fn
-lr_fn(ctx)
-assert ctx.cancelled == True
+# call through the registry — that's the source of truth now
+for _, fn in ABILITY_REGISTRY.get("lightning-rod", []):
+    fn(ctx)
+assert ctx.cancelled == True, "Lightning Rod should cancel Electric moves"
 
-# non-Electric move not cancelled
 ctx2 = AbilityContext(
     engine=MagicMock(), user=BattlePokemon(lr_pkmn),
     user_trainer=MagicMock(), opponent=None,
     move_type=Type.WATER
 )
-lr_fn(ctx2)
-assert ctx2.cancelled == False
+for _, fn in ABILITY_REGISTRY.get("lightning-rod", []):
+    fn(ctx2)
+assert ctx2.cancelled == False, "Lightning Rod should not cancel Water moves"
 
 # --- Levitate cancels Ground moves ---
 lev_ability = Ability("levitate", "immune to ground")
 lev_sp = make_species("Lev", Stats(80,80,80,80,80,80), [Type.PSYCHIC], [tackle], [lev_ability])
 lev_pkmn = make_pokemon(lev_sp, [tackle], ability=lev_ability)
+
 ctx3 = AbilityContext(
     engine=MagicMock(), user=BattlePokemon(lev_pkmn),
     user_trainer=MagicMock(), opponent=None,
     move_type=Type.GROUND
 )
-from engine.abilities import levitate as lev_fn
-lev_fn(ctx3)
-assert ctx3.cancelled == True
-print("  ability hooks OK")
+for _, fn in ABILITY_REGISTRY.get("levitate", []):
+    fn(ctx3)
+assert ctx3.cancelled == True, "Levitate should cancel Ground moves"
 
+ctx4 = AbilityContext(
+    engine=MagicMock(), user=BattlePokemon(lev_pkmn),
+    user_trainer=MagicMock(), opponent=None,
+    move_type=Type.FIRE
+)
+for _, fn in ABILITY_REGISTRY.get("levitate", []):
+    fn(ctx4)
+assert ctx4.cancelled == False, "Levitate should not cancel Fire moves"
 # --- Weather-setting abilities ---
 drizzle_ability = Ability("drizzle", "starts rain")
 drizzle_sp = make_species("Politoed", Stats(90,75,75,90,100,70),
