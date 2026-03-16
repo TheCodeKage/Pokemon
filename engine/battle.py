@@ -163,10 +163,16 @@ class BattleEngine:
         weather_module.tick_weather(self)
 
     def execute_turn(self, action1: Union[Move, int], action2: Union[Move, int]):
+        force_switched = [] # tracks trainers who were force-switched this turn
+
         for trainer, action in self.determine_turn_order(action1, action2):
             opponent = self.trainer2 if trainer == self.trainer1 else self.trainer1
 
             if trainer.active_pokemon.current_hp == 0:
+                continue
+
+            # skip move if this trainer was force-switched in earlier this turn
+            if trainer in force_switched and isinstance(action, Move):
                 continue
 
             if isinstance(action, int):
@@ -177,7 +183,9 @@ class BattleEngine:
             else:
                 self.execute_move(trainer, opponent, action)
                 if opponent.active_pokemon.current_hp == 0:
-                    self._force_switch(opponent, trainer)  # ← replace stub
+                    self._force_switch(opponent, trainer)
+                    if not opponent.has_lost:
+                        force_switched.append(opponent)  # mark opponent as force-switched
 
         self._end_of_turn()
 
