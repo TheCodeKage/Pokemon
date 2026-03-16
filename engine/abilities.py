@@ -25,10 +25,6 @@ def modify_stat(bp, stat_name: str, delta: int):
     bp.stat_changes = Stats(**kwargs)
     return new_val != current
 
-
-from models import StatusCondition, Type, Weather
-
-
 def intimidate(ctx: AbilityContext):
     if ctx.opponent is None:
         return
@@ -75,9 +71,6 @@ def levitate(ctx: AbilityContext):
     if ctx.move_type == Type.GROUND:
         ctx.cancelled = True
         ctx.engine.log(f"{ctx.user.name} is unaffected due to Levitate!")
-
-
-from models.enums import BattleHook
 
 
 ABILITY_REGISTRY: dict[str, list[tuple[BattleHook, Callable]]] = {
