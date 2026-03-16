@@ -6,7 +6,7 @@ from models import (Trainer, Move, BattlePokemon, BattleTrainer,
 from dataclasses import dataclass, field, InitVar
 from typing import Union, Tuple
 import random
-from display.input_handler import get_input
+from display.input_handler import get_input, get_forced_switch
 
 
 @dataclass
@@ -28,6 +28,16 @@ class BattleEngine:
     def log(self, message: str):
         self.battle_log.append(message)
         print(message)
+
+    def _force_switch(self, trainer: BattleTrainer, opponent: BattleTrainer):
+        if trainer.has_lost or not trainer.reserve_pokemon:
+            return
+        self.log(f"{trainer.trainer.name} must send out a new Pokemon!")
+        idx = get_forced_switch(trainer)
+        trainer.switch(idx)
+        self.log(f"{trainer.trainer.name} sent out {trainer.active_pokemon.name}!")
+        self.fire_hook(BattleHook.ON_SWITCH_IN, trainer.active_pokemon,
+                       trainer, opponent=opponent.active_pokemon)
 
     def fire_hook(self, hook: BattleHook, user: BattlePokemon,
                   user_trainer: BattleTrainer, opponent=None, **kwargs) -> AbilityContext:
@@ -129,12 +139,12 @@ class BattleEngine:
             self.log(f"{trainer.trainer.name} must switch Pokemon!")
 
     def _end_of_turn(self):
-        """All end-of-turn effects in correct order."""
         for trainer in [self.trainer1, self.trainer2]:
             pkmn = trainer.active_pokemon
             status.apply_end_of_turn(pkmn, self.log)
             if pkmn.current_hp == 0:
-                self._handle_faint(trainer)
+                opponent = self.trainer2 if trainer == self.trainer1 else self.trainer1
+                self._force_switch(trainer, opponent)
 
         weather_module.apply_weather_damage(
             self.trainer1.active_pokemon,
@@ -143,15 +153,18 @@ class BattleEngine:
         )
         for trainer in [self.trainer1, self.trainer2]:
             if trainer.active_pokemon.current_hp == 0:
-                self._handle_faint(trainer)
+                opponent = self.trainer2 if trainer == self.trainer1 else self.trainer1
+                self._force_switch(trainer, opponent)
 
         weather_module.tick_weather(self)
 
     def execute_turn(self, action1: Union[Move, int], action2: Union[Move, int]):
         for trainer, action in self.determine_turn_order(action1, action2):
             opponent = self.trainer2 if trainer == self.trainer1 else self.trainer1
+
             if trainer.active_pokemon.current_hp == 0:
                 continue
+
             if isinstance(action, int):
                 trainer.switch(action)
                 self.log(f"{trainer.trainer.name} switched to {trainer.active_pokemon.name}!")
@@ -160,7 +173,7 @@ class BattleEngine:
             else:
                 self.execute_move(trainer, opponent, action)
                 if opponent.active_pokemon.current_hp == 0:
-                    self._handle_faint(opponent)
+                    self._force_switch(opponent, trainer)  # ← replace stub
 
         self._end_of_turn()
 
@@ -181,7 +194,9 @@ class BattleEngine:
             action2 = get_input(self.trainer2)
             self.execute_turn(action1, action2)
 
-        if self.trainer1.has_lost:
+        if self.trainer1.has_lost and self.trainer2.has_lost:
+            self.log("\nIt's a draw!")
+        elif self.trainer1.has_lost:
             self.log(f"\n{self.trainer2.trainer.name} won the battle!")
         else:
             self.log(f"\n{self.trainer1.trainer.name} won the battle!")
