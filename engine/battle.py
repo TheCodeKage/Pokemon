@@ -2,7 +2,7 @@ from engine.abilities import ABILITY_REGISTRY, AbilityContext
 from engine.damage import build_damage_context, calculate_damage
 from engine import status, weather as weather_module
 from models import (Trainer, Move, BattlePokemon, BattleTrainer,
-                    StatusCondition, Type, Weather, BattleHook)
+                    StatusCondition, Type, Weather, BattleHook, DamageClass)
 from dataclasses import dataclass, field, InitVar
 from typing import Union, Tuple
 import random
@@ -126,6 +126,10 @@ class BattleEngine:
             self.log(f"{defender.name} took {damage} damage! "
                      f"(HP: {defender.current_hp}/{defender.pokemon.max_hp})")
 
+            if move.base_move.damage_class == DamageClass.PHYSICAL:
+                self.fire_hook(BattleHook.ON_AFTER_DAMAGE, defender, defender_trainer,
+                               opponent=attacker)
+
             # Fire-thaw
             if (defender.status_condition == StatusCondition.FREEZE
                     and move.base_move.type == Type.FIRE):
@@ -139,6 +143,9 @@ class BattleEngine:
         for trainer in [self.trainer1, self.trainer2]:
             pkmn = trainer.active_pokemon
             status.apply_end_of_turn(pkmn, self.log)
+            opponent = self.trainer2 if trainer == self.trainer1 else self.trainer1
+            self.fire_hook(BattleHook.ON_TURN_END, pkmn, trainer,
+                           opponent=opponent.active_pokemon)
             if pkmn.current_hp == 0:
                 opponent = self.trainer2 if trainer == self.trainer1 else self.trainer1
                 self._force_switch(trainer, opponent)
