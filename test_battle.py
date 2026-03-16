@@ -1,6 +1,8 @@
 from models import *
 from engine.battle import BattleEngine
 from engine.type_chart import get_effectiveness
+from engine.damage import calculate_damage, build_damage_context
+from engine.status import try_apply_status
 
 print("=== Type Chart ===")
 assert get_effectiveness(Type.ELECTRIC, [Type.WATER]) == 2.0
@@ -19,10 +21,10 @@ charizard_species = PokemonSpecies("Charizard", Stats(78,84,78,109,85,100), [Typ
 charizard = Pokemon(charizard_species, [tackle, ember], Stats(31,31,31,31,31,31), Stats(0,0,0,0,0,0), no_ability, 50, 153)
 bp_char = BattlePokemon(charizard)
 
-bp_char.apply_status(StatusCondition.BURN)      # Fire type — should be immune
+try_apply_status(bp_char, StatusCondition.BURN)      # Fire type — should be immune
 assert bp_char.status_condition is None, "Fire type should be immune to burn"
 
-bp_char.apply_status(StatusCondition.FREEZE)    # Fire type — should be immune? No — only Ice immune to freeze
+try_apply_status(bp_char, StatusCondition.FREEZE)    # Fire type — should be immune? No — only Ice immune to freeze
 # Actually Fire is NOT immune to freeze, only Ice is
 assert bp_char.status_condition == StatusCondition.FREEZE, "Fire type should NOT be freeze immune"
 bp_char.status_condition = None
@@ -30,10 +32,10 @@ bp_char.status_condition = None
 jolteon_species = PokemonSpecies("Jolteon", Stats(65,65,60,110,95,130), [Type.ELECTRIC], [tackle], [no_ability])
 jolteon = Pokemon(jolteon_species, [tackle], Stats(31,31,31,31,31,31), Stats(0,0,0,0,0,0), no_ability, 50)
 bp_jolt = BattlePokemon(jolteon)
-bp_jolt.apply_status(StatusCondition.PARALYSIS)
+try_apply_status(bp_jolt, StatusCondition.PARALYSIS)
 assert bp_jolt.status_condition == StatusCondition.PARALYSIS
 
-bp_jolt.apply_status(StatusCondition.BURN)     # already has status — should not apply
+try_apply_status(bp_jolt, StatusCondition.BURN)     # already has status — should not apply
 assert bp_jolt.status_condition == StatusCondition.PARALYSIS, "Second status should not overwrite"
 print("  apply_status OK")
 
@@ -43,7 +45,7 @@ assert normal_speed == bp_jolt.pokemon.speed // 2, f"Paralysed speed should be h
 print("  paralysis speed OK")
 
 print("=== Status: burn attack halving ===")
-bp_char.apply_status(StatusCondition.BURN)
+try_apply_status(bp_char, StatusCondition.BURN)
 #assert bp_char.attack == bp_char.pokemon.attack // 2, "Burned attack should be halved"
 #Charizard can't be burned
 print("  burn attack OK")
@@ -52,7 +54,7 @@ print("=== Status: sleep counter ===")
 weedle_species = PokemonSpecies("Weedle", Stats(40,35,30,20,20,50), [Type.BUG, Type.POISON], [tackle], [no_ability])
 weedle = Pokemon(weedle_species, [tackle], Stats(31,31,31,31,31,31), Stats(0,0,0,0,0,0), no_ability, 5)
 bp_weedle = BattlePokemon(weedle)
-bp_weedle.apply_status(StatusCondition.SLEEP)
+try_apply_status(bp_weedle, StatusCondition.SLEEP)
 assert bp_weedle.status_condition == StatusCondition.SLEEP
 assert 1 <= bp_weedle.sleep_counter <= 3, f"sleep_counter should be 1-3, got {bp_weedle.sleep_counter}"
 print("  sleep counter OK")
@@ -71,18 +73,18 @@ engine = BattleEngine(t1, t2)
 move_ft = Move(flamethrower)
 move_surf = Move(surf)
 
-base_fire = engine.calculate_damage(engine.trainer1.active_pokemon, engine.trainer2.active_pokemon, move_ft)
-base_water = engine.calculate_damage(engine.trainer1.active_pokemon, engine.trainer2.active_pokemon, move_surf)
+base_fire = calculate_damage(build_damage_context(engine.trainer1.active_pokemon, engine.trainer2.active_pokemon, move_ft, engine.weather))
+base_water = calculate_damage(build_damage_context(engine.trainer1.active_pokemon, engine.trainer2.active_pokemon, move_surf, engine.weather))
 engine.set_weather(Weather.SUN)
-sun_fire = engine.calculate_damage(engine.trainer1.active_pokemon, engine.trainer2.active_pokemon, move_ft)
-sun_water = engine.calculate_damage(engine.trainer1.active_pokemon, engine.trainer2.active_pokemon, move_surf)
+sun_fire = calculate_damage(build_damage_context(engine.trainer1.active_pokemon, engine.trainer2.active_pokemon, move_ft, engine.weather))
+sun_water = calculate_damage(build_damage_context(engine.trainer1.active_pokemon, engine.trainer2.active_pokemon, move_surf, engine.weather))
 assert sun_fire > base_fire, "Fire should be boosted in sun"
 assert sun_water < base_water, "Water should be weakened in sun"
 print("  sun weather OK")
 
 engine.set_weather(Weather.RAIN)
-rain_water = engine.calculate_damage(engine.trainer1.active_pokemon, engine.trainer2.active_pokemon, move_surf)
-rain_fire = engine.calculate_damage(engine.trainer1.active_pokemon, engine.trainer2.active_pokemon, move_ft)
+rain_water = calculate_damage(build_damage_context(engine.trainer1.active_pokemon, engine.trainer2.active_pokemon, move_surf, engine.weather))
+rain_fire = calculate_damage(build_damage_context(engine.trainer1.active_pokemon, engine.trainer2.active_pokemon, move_ft, engine.weather))
 assert rain_water > base_fire, "Water should be boosted in rain"
 assert rain_fire < base_fire, "Fire should be weakened in rain"
 print("  rain weather OK")

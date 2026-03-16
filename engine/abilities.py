@@ -1,9 +1,9 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass, fields
 from typing import TYPE_CHECKING, Optional, Callable
 
 if TYPE_CHECKING:
     from engine.battle import BattleEngine
-    from models import BattlePokemon, BattleTrainer
+    from models import BattlePokemon, BattleTrainer, Stats
 
 
 @dataclass
@@ -16,6 +16,14 @@ class AbilityContext:
     damage: Optional[int] = None  # mutable — abilities can modify this
     cancelled: bool = False  # set True to block an effect
 
+def modify_stat(bp, stat_name: str, delta: int):
+    current = getattr(bp.stat_changes, stat_name)
+    new_val = max(-6, min(6, current + delta))
+    kwargs = {f.name: getattr(bp.stat_changes, f.name) for f in fields(bp.stat_changes)}
+    kwargs[stat_name] = new_val
+    bp.stat_changes = Stats(**kwargs)
+    return new_val != current
+
 
 from models import StatusCondition, Type, Weather
 
@@ -23,18 +31,9 @@ from models import StatusCondition, Type, Weather
 def intimidate(ctx: AbilityContext):
     if ctx.opponent is None:
         return
-    from models.pokemon import Stats
-    old = ctx.opponent.stat_changes.attack
-    new_val = max(-6, old - 1)
-    ctx.opponent.stat_changes = Stats(
-        new_val,
-        ctx.opponent.stat_changes.defense,
-        ctx.opponent.stat_changes.special_attack,
-        ctx.opponent.stat_changes.special_defense,
-        ctx.opponent.stat_changes.speed,
-        ctx.opponent.stat_changes.hp,
-    )
-    ctx.engine.log(f"{ctx.opponent.name}'s Attack fell!")
+    changed = modify_stat(ctx.opponent, 'attack', -1)
+    if changed:
+        ctx.engine.log(f"{ctx.opponent.name}'s Attack fell!")
 
 
 def drizzle(ctx: AbilityContext):

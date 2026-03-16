@@ -14,6 +14,6 @@ abilities = [static, lightning_rod]
 
 
 pikachu = PokemonSpecies(name="Pikachu", stats=Stats(35, 55, 40, 50, 50, 90), types=[Type.ELECTRIC], moves=moves, abilities=abilities)
-pika = Pokemon(pikachu, moves=moves, IVs=Stats(31, 31, 31, 31, 31, 31), EVs=Stats(35, 55, 40, 50, 50, 90) ,level=100, ability=lightning_rod, current_hp=100)
+pika = Pokemon(pikachu, moves=moves, IVs=Stats(31, 31, 31, 31, 31, 31), EVs=Stats(35, 55, 40, 50, 50, 90) ,level=100, ability=lightning_rod)
 battle_pika = BattlePokemon(pika)
 print(battle_pika)

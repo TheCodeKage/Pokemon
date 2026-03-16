@@ -179,20 +179,3 @@ class BattlePokemon:
         self.volatile_conditions.clear()
         self.toxic_counter = 0
         # status_condition intentionally persists through switching
-
-    def apply_status(self, condition: StatusCondition):
-        if self.status_condition is not None:
-            return
-        # Type immunities
-        if condition == StatusCondition.FREEZE and Type.ICE in self.pokemon.species.types:
-            return
-        if condition == StatusCondition.BURN and Type.FIRE in self.pokemon.species.types:
-            return
-        if condition == StatusCondition.POISON and (
-                Type.POISON in self.pokemon.species.types
-                or Type.STEEL in self.pokemon.species.types
-        ):
-            return
-        self.status_condition = condition
-        if condition == StatusCondition.SLEEP:
-            self.sleep_counter = random.randint(1, 3)
