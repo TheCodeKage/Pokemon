@@ -67,3 +67,14 @@ class Weather(enum.Enum):
     RAIN = "rain"
     SAND = "sand"
     HAIL = "hail"
+
+
+class BattleHook(enum.Enum):
+    ON_SWITCH_IN = "on_switch_in"
+    ON_BEFORE_MOVE = "on_before_move"
+    ON_MODIFY_DAMAGE = "on_modify_damage"
+    ON_AFTER_DAMAGE = "on_after_damage"
+    ON_STATUS_APPLY = "on_status_apply"
+    ON_TURN_END = "on_turn_end"
+    ON_WEATHER_SET = "on_weather_set"
+    ON_STAT_MODIFY = "on_stat_modify"

@@ -34,7 +34,6 @@ class Pokemon:
     EVs: Stats
     ability: Ability
     level: int
-    current_hp: int = field(default=-1)
     name: str = field(default="")
 
     def calculate_stat(self, base: int, iv: int, ev: int, is_hp: bool = False) -> int:
@@ -98,10 +97,6 @@ class Pokemon:
             raise ValueError(f"Level must be between 1 and 100 (got {self.level})")
 
         max_hp = self.max_hp
-        if self.current_hp < 0:
-            self.current_hp = max_hp
-        if self.current_hp > max_hp:
-            raise ValueError(f"current_hp cannot exceed max HP ({max_hp})")
 
         if len(set(self.moves)) != len(self.moves):
             raise ValueError("Pokemon cannot have duplicate moves")
@@ -121,6 +116,7 @@ class BattlePokemon:
     toxic_counter: int = 0
     sleep_counter: int = 0
     moves: List[Move] = field(default_factory=list, init=False)
+    current_hp: int = field(default=-1)
 
     def __post_init__(self):
         for f in fields(self.stat_changes):
@@ -132,6 +128,14 @@ class BattlePokemon:
 
         for move in self.pokemon.moves:
             self.moves.append(Move(move))
+
+        if self.current_hp == -1:
+            self.current_hp = self.pokemon.max_hp
+        elif self.current_hp < 0:
+            raise ValueError("current_hp cannot be negative")
+
+        if self.current_hp > self.pokemon.max_hp:
+            raise ValueError(f"current_hp cannot exceed max HP ({self.pokemon.max_hp})")
 
     @property
     def name(self):
@@ -169,10 +173,6 @@ class BattlePokemon:
         if self.status_condition == StatusCondition.PARALYSIS:
             return base // 2
         return base
-
-    @property
-    def current_hp(self) -> int:
-        return self.pokemon.current_hp
 
     def switch_out(self):
         self.stat_changes = Stats(0, 0, 0, 0, 0, 0)

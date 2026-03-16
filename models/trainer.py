@@ -34,17 +34,17 @@ class BattleTrainer:
     def reserve_pokemon(self):
         return [
             (i, p) for i, p in enumerate(self.pokemon)
-            if i != self.active_index and p.pokemon.current_hp > 0
+            if i != self.active_index and p.current_hp > 0
         ]
 
     @property
     def has_lost(self):
-        return all(p.pokemon.current_hp <= 0 for p in self.pokemon)
+        return all(p.current_hp <= 0 for p in self.pokemon)
 
     def switch(self, index: int):
         if index < 0 or index >= len(self.pokemon):
             raise ValueError("Invalid index")
-        if self.pokemon[index].pokemon.current_hp <= 0:
+        if self.pokemon[index].current_hp <= 0:
             raise ValueError("Cannot switch to a fainted Pokemon")
         self.active_pokemon.switch_out()
         self.active_index = index

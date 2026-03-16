@@ -1,5 +1,7 @@
+from engine.abilities import AbilityContext, ABILITY_REGISTRY
+from engine.damage import build_damage_context, calculate_damage
 from engine.type_chart import get_effectiveness
-from models import Trainer, Move, BattlePokemon, BattleTrainer, DamageClass, StatusCondition, Type, Weather
+from models import Trainer, Move, BattlePokemon, BattleTrainer, DamageClass, StatusCondition, Type, Weather, BattleHook
 from dataclasses import dataclass, field, InitVar
 from typing import Union, Tuple
 import random
@@ -10,7 +12,7 @@ def get_input(trainer: BattleTrainer) -> Union[Move, int]:
     current_pokemon = trainer.active_pokemon
     reserve_pokemon = trainer.reserve_pokemon
 
-    print(f"\n{trainer.trainer.name}'s {current_pokemon.name} (HP: {current_pokemon.pokemon.current_hp}/{current_pokemon.pokemon.max_hp})")
+    print(f"\n{trainer.trainer.name}'s {current_pokemon.name} (HP: {current_pokemon.current_hp}/{current_pokemon.pokemon.max_hp})")
 
     choice = int(input("""
     What do you choose?
@@ -28,7 +30,7 @@ def get_input(trainer: BattleTrainer) -> Union[Move, int]:
     else:
         print("\nAvailable Pokemon:")
         for i, (idx, p) in enumerate(reserve_pokemon, 1):
-            print(f"  {i}. {p.name} (HP: {p.pokemon.current_hp}/{p.pokemon.max_hp})")
+            print(f"  {i}. {p.name} (HP: {p.current_hp}/{p.pokemon.max_hp})")
         switch_choice = int(input("Enter your choice: ")) - 1
         return reserve_pokemon[switch_choice][0]  # Return the index
 
@@ -52,6 +54,18 @@ class BattleEngine:
         """Add message to battle log and print it"""
         self.battle_log.append(message)
         print(message)
+
+    def fire_hook(self, hook: BattleHook, user: BattlePokemon,
+                  user_trainer: BattleTrainer, opponent=None, **kwargs) -> AbilityContext:
+        ability_name = user.pokemon.ability.name.lower()
+        ctx = AbilityContext(
+            engine=self, user=user, user_trainer=user_trainer,
+            opponent=opponent, **kwargs
+        )
+        for registered_hook, fn in ABILITY_REGISTRY.get(ability_name, []):
+            if registered_hook == hook:
+                fn(ctx)
+        return ctx
 
     def set_weather(self, weather: Weather, turns: int = 5):
         self.weather = weather
@@ -89,67 +103,22 @@ class BattleEngine:
             match pokemon.status_condition:
                 case StatusCondition.BURN:
                     damage = max(1, pokemon.pokemon.max_hp // 16)
-                    pokemon.pokemon.current_hp = max(0, pokemon.pokemon.current_hp - damage)
+                    pokemon.current_hp = max(0, pokemon.current_hp - damage)
                     self.log(f"{pokemon.name} is hurt by its burn!")
                 case StatusCondition.POISON:
                     damage = max(1, pokemon.pokemon.max_hp // 8)
-                    pokemon.pokemon.current_hp = max(0, pokemon.pokemon.current_hp - damage)
+                    pokemon.current_hp = max(0, pokemon.current_hp - damage)
                     self.log(f"{pokemon.name} is hurt by poison!")
                 case StatusCondition.TOXIC:
                     pokemon.toxic_counter += 1
                     damage = max(1, pokemon.pokemon.max_hp * pokemon.toxic_counter // 16)
-                    pokemon.pokemon.current_hp = max(0, pokemon.pokemon.current_hp - damage)
+                    pokemon.current_hp = max(0, pokemon.current_hp - damage)
                     self.log(f"{pokemon.name} is hurt by poison! ({damage} damage)")
                 case _:
                     pass  # SLEEP, FREEZE, PARALYSIS have no end-of-turn damage
 
-            if pokemon.pokemon.current_hp == 0:
+            if pokemon.current_hp == 0:
                 self.log(f"{pokemon.name} fainted!")
-
-    def calculate_damage(self, attacker: BattlePokemon, defender: BattlePokemon, move: Move) -> int:
-        """Calculate damage using Pokemon damage formula"""
-        if move.base_move.damage_class == DamageClass.STATUS:
-            return 0
-
-        # Determine attack and defense stats
-        if move.base_move.damage_class == DamageClass.PHYSICAL:
-            attack = attacker.attack
-            defense = defender.defense
-        else:  # SPECIAL
-            attack = attacker.special_attack
-            defense = defender.special_defense
-
-            if self.weather == Weather.SAND and Type.ROCK in defender.pokemon.species.types:
-                defense *= 1.5
-
-        # Base damage calculation
-        level = attacker.pokemon.level
-        power = move.base_move.power
-        damage = ((2 * level / 5 + 2) * power * attack / defense) / 50 + 2
-
-        # STAB (Same Type Attack Bonus)
-        if move.base_move.type in attacker.pokemon.species.types:
-            damage *= 1.5
-
-        match self.weather:
-            case Weather.SUN:
-                if move.base_move.type == Type.FIRE:
-                    damage *= 1.5
-                elif move.base_move.type == Type.WATER:
-                    damage *= 0.5
-            case Weather.RAIN:
-                if move.base_move.type == Type.WATER:
-                    damage *= 1.5
-                elif move.base_move.type == Type.FIRE:
-                    damage *= 0.5
-
-        # Type effectiveness (simplified - you'd need a type chart)
-        damage *= get_effectiveness(move.base_move.type, defender.pokemon.species.types)
-
-        # Random factor (0.85 to 1.0)
-        damage *= random.uniform(0.85, 1.0)
-
-        return int(damage)
 
     def execute_move(self, attacker_trainer: BattleTrainer, defender_trainer: BattleTrainer, move: Move):
         """Execute a move from attacker to defender"""
@@ -181,6 +150,11 @@ class BattleEngine:
 
         self.log(f"{attacker.name} used {move.name}!")
 
+        ctx = self.fire_hook(BattleHook.ON_BEFORE_MOVE, defender, defender_trainer,
+                             opponent=attacker, move_type=move.base_move.type)
+        if ctx.cancelled:
+            return
+
         # Check accuracy
         if move.base_move.accuracy is not None and random.randint(1, 100) > move.base_move.accuracy:
             self.log("The attack missed!")
@@ -190,18 +164,19 @@ class BattleEngine:
         move.use()
 
         # Calculate and apply damage
-        damage = self.calculate_damage(attacker, defender, move)
+        ctx = build_damage_context(attacker, defender, move, self.weather)
+        damage = calculate_damage(ctx)
 
         if damage > 0:
-            defender.pokemon.current_hp = max(0, defender.pokemon.current_hp - damage)
-            self.log(f"{defender.name} took {damage} damage! (HP: {defender.pokemon.current_hp}/{defender.pokemon.max_hp})")
+            defender.current_hp = max(0, defender.current_hp - damage)
+            self.log(f"{defender.name} took {damage} damage! (HP: {defender.current_hp}/{defender.pokemon.max_hp})")
 
             if (defender.status_condition == StatusCondition.FREEZE
                     and move.base_move.type == Type.FIRE):
                 defender.status_condition = None
                 self.log(f"{defender.name} was defrosted!")
 
-            if defender.pokemon.current_hp == 0:
+            if defender.current_hp == 0:
                 self.log(f"{defender.name} fainted!")
 
     def determine_turn_order(self, action1: Union[Move, int], action2: Union[Move, int]) -> list[Tuple[BattleTrainer, Union[Move, int]]]:
@@ -232,7 +207,7 @@ class BattleEngine:
             opponent = self.trainer2 if trainer == self.trainer1 else self.trainer1
 
             # Check if trainer's pokemon has fainted
-            if trainer.active_pokemon.pokemon.current_hp == 0:
+            if trainer.active_pokemon.current_hp == 0:
                 continue
 
             # Execute action
@@ -241,12 +216,13 @@ class BattleEngine:
                 old_name = trainer.active_pokemon.name
                 trainer.switch(action)
                 self.log(f"{trainer.trainer.name} switched to {trainer.active_pokemon.name}!")
+                self.fire_hook(BattleHook.ON_SWITCH_IN, trainer.active_pokemon, trainer, opponent=opponent.active_pokemon)
             else:
                 # Attack
                 self.execute_move(trainer, opponent, action)
 
                 # Check if opponent fainted
-                if opponent.active_pokemon.pokemon.current_hp == 0:
+                if opponent.active_pokemon.current_hp == 0:
                     # Force switch if they have pokemon left
                     if not opponent.has_lost and len(opponent.reserve_pokemon) > 0:
                         self.log(f"{opponent.trainer.name} must switch Pokemon!")
@@ -258,13 +234,13 @@ class BattleEngine:
             if self.weather_turns_remaining == 0:
                 self.log("The weather cleared up!")
                 self.weather = Weather.CLEAR
-        if self.trainer1.active_pokemon.pokemon.current_hp == 0:
+        if self.trainer1.active_pokemon.current_hp == 0:
             # Force switch if they have pokemon left
             if not self.trainer1.has_lost and len(self.trainer1.reserve_pokemon) > 0:
                 self.log(f"{self.trainer1.trainer.name} must switch Pokemon!")
                 # In a real game, you'd handle forced switches here
         self.apply_end_of_turn_effects(self.trainer2.active_pokemon)
-        if self.trainer2.active_pokemon.pokemon.current_hp == 0:
+        if self.trainer2.active_pokemon.current_hp == 0:
             # Force switch if they have pokemon left
             if not self.trainer2.has_lost and len(self.trainer2.reserve_pokemon) > 0:
                 self.log(f"{self.trainer2.trainer.name} must switch Pokemon!")
