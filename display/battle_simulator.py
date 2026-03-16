@@ -19,12 +19,12 @@ charizard_moves = [flamethrower, solar_beam, focus_blast, roost]
 charizard_ability = client.get_ability("solar-power")
 
 
-thunder = client.get_move("thunder")
+thunder_wave = client.get_move("thunder-wave")
 volt_switch = client.get_move("volt-switch")
 knock_off = client.get_move("knock-off")
 protect = client.get_move("protect")
 
-pikachu_moves = [thunder, volt_switch, knock_off, protect]
+pikachu_moves = [thunder_wave, volt_switch, knock_off, protect]
 pikachu_ability = client.get_ability("static")
 
 

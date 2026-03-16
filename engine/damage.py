@@ -41,7 +41,7 @@ def build_damage_context(
         attack=attack,
         defense=defense,
         level=attacker.pokemon.level,
-        power=move.base_move.power,
+        power=move.base_move.power or 0,
         stab=move.base_move.type in attacker.pokemon.species.types,
         type_effectiveness=get_effectiveness(
             move.base_move.type,
@@ -67,6 +67,8 @@ def _resolve_weather_modifier(move: Move, weather: Weather) -> float:
 
 
 def calculate_damage(ctx: DamageContext) -> int:
+    if ctx.power == 0:
+        return 0
     damage = ((2 * ctx.level / 5 + 2) * ctx.power * ctx.attack / ctx.defense) / 50 + 2
     if ctx.stab:
         damage *= 1.5
